@@ -17,6 +17,7 @@ alembic==1.13.1
 # Task queue
 celery[redis]==5.4.0
 redis==5.0.6
+flower==2.0.1
 
 # Utilities
 aiofiles==23.2.1
