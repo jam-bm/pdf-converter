@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Converter Backend — Manual Test Client</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .base-url-bar {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 2rem;
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+
+    .base-url-bar label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+
+    .base-url-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #f8fafc;
+      font-size: 0.9rem;
+      font-family: monospace;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #475569;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.ok    { background: #22c55e; }
+    .status-dot.error { background: #ef4444; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .method-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .method-badge.GET  { background: #1d4ed8; color: #bfdbfe; }
+    .method-badge.POST { background: #15803d; color: #bbf7d0; }
+
+    .card-header h2 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .card-header .path {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-family: monospace;
+      margin-left: auto;
+    }
+
+    .card-body {
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 0.3rem;
+    }
+
+    .field input[type="file"],
+    .field input[type="text"],
+    .field select {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.65rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus { border-color: #6366f1; }
+
+    .field input[type="file"] { padding: 0.35rem 0.5rem; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .toggle-row label {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .btn {
+      align-self: flex-start;
+      padding: 0.5rem 1.25rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn:hover  { background: #4f46e5; }
+    .btn:active { opacity: 0.8; }
+    .btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+    .response-box {
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 6px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.78rem;
+      font-family: monospace;
+      color: #a3e635;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .response-box.err { color: #f87171; }
+    .response-box.neutral { color: #94a3b8; }
+
+    .poll-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+    .poll-status .tag {
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .tag.pending    { background: #92400e; color: #fde68a; }
+    .tag.processing { background: #1e3a8a; color: #bfdbfe; }
+    .tag.done       { background: #14532d; color: #86efac; }
+    .tag.failed     { background: #7f1d1d; color: #fca5a5; }
+
+    .divider {
+      grid-column: 1 / -1;
+      border: none;
+      border-top: 1px solid #2d3748;
+      margin: 0.5rem 0;
+    }
+
+    .section-title {
+      grid-column: 1 / -1;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-top: 0.5rem;
+    }
+
+    .images-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .images-grid img {
+      max-width: 100px;
+      max-height: 100px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+      object-fit: contain;
+      background: #0f1117;
+    }
+
+    .download-link {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 0.35rem 0.9rem;
+      background: #0f766e;
+      color: #ccfbf1;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .download-link:hover { background: #0d9488; }
+
+    @media (max-width: 500px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>PDF Converter — Manual Test Client</h1>
+<p class="subtitle">Open <code>test_client.html</code> directly in a browser (no build step needed). Make sure the backend is running.</p>
+
+<div class="base-url-bar">
+  <label>Base URL</label>
+  <input type="text" id="baseUrl" value="http://localhost:8000" />
+  <div class="status-dot" id="healthDot" title="Health status"></div>
+</div>
+
+<div class="grid">
+
+  <!-- ── HEALTH ──────────────────────────────────── -->
+  <p class="section-title">Health</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="method-badge GET">GET</span>
+      <h2>Root</h2>
+      <span class="path">/</span>
+    </div>
+    <div class="card-body">
+      <button class="btn" onclick="callGet('/', 'rootRes')">Send</button>
+      <div class="response-box neutral" id="rootRes">— awaiting request —</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="method-badge GET">GET</span>
+      <h2>Health Check</h2>
+      <span class="path">/health</span>
+    </div>
+    <div class="card-body">
+      <button class="btn" onclick="callGet('/health', 'healthRes')">Send</button>
+      <div class="response-box neutral" id="healthRes">— awaiting request —</div>
+    </div>
+  </div>
+
+  <!-- ── EXTRACT ─────────────────────────────────── -->
+  <hr class="divider" />
+  <p class="section-title">Extract</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="method-badge POST">POST</span>
+      <h2>Extract Text &amp; Images</h2>
+      <span class="path">/api/v1/extract/text-and-images</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>PDF File</label>
+        <input type="file" id="tiFile" accept=".pdf" />
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="includeImages" checked />
+        <label for="includeImages">include_images</label>
+      </div>
+      <button class="btn" id="tiBtn" onclick="extractTextAndImages()">Send</button>
+      <div class="response-box neutral" id="tiRes">— awaiting request —</div>
+      <div class="images-grid" id="tiImages"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="method-badge POST">POST</span>
+      <h2>Extract Text Only</h2>
+      <span class="path">/api/v1/extract/text-only</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>PDF File</label>
+        <input type="file" id="toFile" accept=".pdf" />
+      </div>
+      <button class="btn" id="toBtn" onclick="extractTextOnly()">Send</button>
+      <div class="response-box neutral" id="toRes">— awaiting request —</div>
+    </div>
+  </div>
+
+  <!-- ── CONVERT ────────────────────────────────── -->
+  <hr class="divider" />
+  <p class="section-title">Convert (async)</p>
+
+  <div class="card" style="grid-column: 1 / -1; max-width: 860px;">
+    <div class="card-header">
+      <span class="method-badge POST">POST</span>
+      <h2>Convert PDF → DOCX</h2>
+      <span class="path">/api/v1/convert/to-docx</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>PDF File</label>
+        <input type="file" id="cvFile" accept=".pdf" />
+      </div>
+      <button class="btn" id="cvBtn" onclick="submitConvert()">Submit Job</button>
+      <div class="response-box neutral" id="cvRes">— awaiting request —</div>
+
+      <!-- job polling section (hidden until a job exists) -->
+      <div id="pollSection" style="display:none; margin-top:0.5rem;">
+        <div class="field">
+          <label>Job ID</label>
+          <input type="text" id="jobIdInput" placeholder="auto-filled after submit" />
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <button class="btn" onclick="pollJob()">Poll Once</button>
+          <button class="btn" id="autoPollBtn" onclick="toggleAutoPoll()" style="background:#334155; color:#94a3b8;">Auto-poll (2 s)</button>
+        </div>
+        <div class="poll-status" id="pollStatus" style="margin-top:0.4rem;"></div>
+        <div class="response-box neutral" id="jobRes" style="margin-top:0.5rem;">— awaiting poll —</div>
+        <div id="downloadSection" style="display:none; margin-top:0.4rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── JOBS ───────────────────────────────────── -->
+  <hr class="divider" />
+  <p class="section-title">Jobs</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="method-badge GET">GET</span>
+      <h2>Get Job Status</h2>
+      <span class="path">/api/v1/jobs/{job_id}</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Job ID</label>
+        <input type="text" id="manualJobId" placeholder="paste a job_id" />
+      </div>
+      <button class="btn" onclick="getJob()">Send</button>
+      <div class="response-box neutral" id="manualJobRes">— awaiting request —</div>
+    </div>
+  </div>
+
+</div><!-- .grid -->
+
+<script>
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  function base() {
+    return document.getElementById('baseUrl').value.replace(/\/$/, '');
+  }
+
+  function showRes(id, data, isErr = false) {
+    const el = document.getElementById(id);
+    el.className = 'response-box' + (isErr ? ' err' : '');
+    el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  }
+
+  async function callGet(path, resId) {
+    showRes(resId, 'Loading…');
+    try {
+      const r = await fetch(base() + path);
+      const json = await r.json();
+      showRes(resId, json, !r.ok);
+    } catch (e) {
+      showRes(resId, 'Network error: ' + e.message, true);
+    }
+  }
+
+  // ── health probe on URL change ──────────────────────────────────────────────
+
+  const dot = document.getElementById('healthDot');
+
+  async function probeHealth() {
+    try {
+      const r = await fetch(base() + '/health', { signal: AbortSignal.timeout(3000) });
+      dot.className = 'status-dot ' + (r.ok ? 'ok' : 'error');
+    } catch {
+      dot.className = 'status-dot error';
+    }
+  }
+
+  document.getElementById('baseUrl').addEventListener('change', probeHealth);
+  probeHealth();
+
+  // ── extract: text & images ──────────────────────────────────────────────────
+
+  async function extractTextAndImages() {
+    const file = document.getElementById('tiFile').files[0];
+    if (!file) { showRes('tiRes', 'Select a PDF first.', true); return; }
+
+    const includeImages = document.getElementById('includeImages').checked;
+    const btn = document.getElementById('tiBtn');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    document.getElementById('tiImages').innerHTML = '';
+    showRes('tiRes', 'Uploading & extracting…');
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const r = await fetch(`${base()}/api/v1/extract/text-and-images?include_images=${includeImages}`, {
+        method: 'POST', body: fd,
+      });
+      const json = await r.json();
+
+      if (!r.ok) { showRes('tiRes', json, true); return; }
+
+      // show a truncated summary
+      const summary = {
+        filename: json.filename,
+        total_pages: json.total_pages,
+        image_count: json.images?.length ?? 0,
+        pages_preview: json.pages?.slice(0, 2).map(p => ({
+          page: p.page_number,
+          chars: p.text?.length,
+          text_preview: p.text?.slice(0, 120) + (p.text?.length > 120 ? '…' : ''),
+        })),
+      };
+      showRes('tiRes', summary);
+
+      // render embedded images
+      const grid = document.getElementById('tiImages');
+      (json.images ?? []).forEach(img => {
+        const el = document.createElement('img');
+        el.src = img.data_uri ?? img.src ?? img;
+        el.title = `Page ${img.page ?? '?'} — ${img.width ?? '?'}×${img.height ?? '?'}`;
+        grid.appendChild(el);
+      });
+
+    } catch (e) {
+      showRes('tiRes', 'Network error: ' + e.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send';
+    }
+  }
+
+  // ── extract: text only ──────────────────────────────────────────────────────
+
+  async function extractTextOnly() {
+    const file = document.getElementById('toFile').files[0];
+    if (!file) { showRes('toRes', 'Select a PDF first.', true); return; }
+
+    const btn = document.getElementById('toBtn');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    showRes('toRes', 'Uploading & extracting…');
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const r = await fetch(`${base()}/api/v1/extract/text-only`, { method: 'POST', body: fd });
+      const json = await r.json();
+      if (!r.ok) { showRes('toRes', json, true); return; }
+
+      const summary = {
+        filename: json.filename,
+        total_pages: json.total_pages,
+        full_text_chars: json.full_text?.length,
+        full_text_preview: json.full_text?.slice(0, 400) + (json.full_text?.length > 400 ? '\n…' : ''),
+      };
+      showRes('toRes', summary);
+    } catch (e) {
+      showRes('toRes', 'Network error: ' + e.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send';
+    }
+  }
+
+  // ── convert: submit job ─────────────────────────────────────────────────────
+
+  let autoPollTimer = null;
+
+  async function submitConvert() {
+    const file = document.getElementById('cvFile').files[0];
+    if (!file) { showRes('cvRes', 'Select a PDF first.', true); return; }
+
+    stopAutoPoll();
+
+    const btn = document.getElementById('cvBtn');
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    showRes('cvRes', 'Uploading…');
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const r = await fetch(`${base()}/api/v1/convert/to-docx`, { method: 'POST', body: fd });
+      const json = await r.json();
+      showRes('cvRes', json, !r.ok);
+
+      if (r.ok && json.job_id) {
+        document.getElementById('jobIdInput').value = json.job_id;
+        document.getElementById('pollSection').style.display = 'block';
+        document.getElementById('downloadSection').style.display = 'none';
+        document.getElementById('downloadSection').innerHTML = '';
+        renderPollStatus('pending');
+        showRes('jobRes', '— awaiting first poll —');
+        // start auto-poll automatically
+        startAutoPoll();
+      }
+    } catch (e) {
+      showRes('cvRes', 'Network error: ' + e.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Submit Job';
+    }
+  }
+
+  // ── convert: poll job ───────────────────────────────────────────────────────
+
+  async function pollJob() {
+    const jobId = document.getElementById('jobIdInput').value.trim();
+    if (!jobId) { showRes('jobRes', 'Enter a job_id first.', true); return; }
+
+    try {
+      const r = await fetch(`${base()}/api/v1/jobs/${jobId}`);
+      const json = await r.json();
+      showRes('jobRes', json, !r.ok);
+
+      if (!r.ok) { stopAutoPoll(); return; }
+
+      renderPollStatus(json.status);
+
+      if (json.status === 'done') {
+        stopAutoPoll();
+        if (json.download_url) {
+          const sec = document.getElementById('downloadSection');
+          sec.style.display = 'block';
+          sec.innerHTML = `<a class="download-link" href="${base()}${json.download_url}" download>Download DOCX</a>`;
+        }
+      } else if (json.status === 'failed') {
+        stopAutoPoll();
+      }
+    } catch (e) {
+      showRes('jobRes', 'Network error: ' + e.message, true);
+    }
+  }
+
+  function renderPollStatus(status) {
+    const el = document.getElementById('pollStatus');
+    el.innerHTML = `Status: <span class="tag ${status}">${status}</span>`;
+  }
+
+  function startAutoPoll() {
+    if (autoPollTimer) return;
+    const btn = document.getElementById('autoPollBtn');
+    btn.style.background = '#4f46e5'; btn.style.color = '#fff';
+    btn.textContent = 'Stop auto-poll';
+    autoPollTimer = setInterval(pollJob, 2000);
+  }
+
+  function stopAutoPoll() {
+    if (!autoPollTimer) return;
+    clearInterval(autoPollTimer);
+    autoPollTimer = null;
+    const btn = document.getElementById('autoPollBtn');
+    btn.style.background = '#334155'; btn.style.color = '#94a3b8';
+    btn.textContent = 'Auto-poll (2 s)';
+  }
+
+  function toggleAutoPoll() {
+    autoPollTimer ? stopAutoPoll() : startAutoPoll();
+  }
+
+  // ── jobs: manual lookup ─────────────────────────────────────────────────────
+
+  async function getJob() {
+    const jobId = document.getElementById('manualJobId').value.trim();
+    if (!jobId) { showRes('manualJobRes', 'Enter a job_id.', true); return; }
+    showRes('manualJobRes', 'Loading…');
+    try {
+      const r = await fetch(`${base()}/api/v1/jobs/${jobId}`);
+      const json = await r.json();
+      showRes('manualJobRes', json, !r.ok);
+    } catch (e) {
+      showRes('manualJobRes', 'Network error: ' + e.message, true);
+    }
+  }
+</script>
+</body>
+</html>
