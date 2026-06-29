@@ -19,7 +19,7 @@ def convert_pdf_to_docx(pdf_path: Path, output_dir: Path) -> ConversionResult:
     return ConversionResult(
         filename=output_name,
         original_name=pdf_path.name,
-        download_url=f"/api/v1/download/{output_name}",
+        download_url=f"/api/v1/convert/download/{output_name}",
         total_pages=total_pages,
         file_size_bytes=output_path.stat().st_size,
     )
