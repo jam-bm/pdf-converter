@@ -14,7 +14,10 @@ def extract_pdf_content(pdf_path: Path) -> ExtractionResult:
     for page_num in range(len(doc)):
         page = doc[page_num]
 
-        text = page.get_text("text")
+        text = page.get_text("text").strip()
+        if not text:
+            tp = page.get_textpage_ocr(flags=0, dpi=300, full=True)
+            text = page.get_text("text", textpage=tp).strip()
         full_text_parts.append(text)
 
         page_images = _extract_images_from_page(doc, page, page_num + 1, image_index)
