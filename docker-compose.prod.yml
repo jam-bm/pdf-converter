@@ -1,0 +1,88 @@
+# Production stack — built and run directly on the server.
+#
+# Differences from docker-compose.yml (local dev):
+#   - Postgres and Redis ports are NOT published to the host (internal network only)
+#   - The API is bound to 127.0.0.1:8000 — reachable only by the host's Nginx, not the
+#     public internet. Nginx (running on the host) terminates TLS and proxies to it.
+#   - Secrets come from .env on the server, never committed
+#
+# Deploy / update:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+    # Bound to localhost only — Nginx on the host proxies to it. Not public.
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Monitoring dashboard. Bound to localhost only — reach via SSH tunnel:
+  #   ssh -L 5555:localhost:5555 <user>@<server>  then open http://localhost:5555
+  flower:
+    build: .
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app flower --port=5555
+    ports:
+      - "127.0.0.1:5555:5555"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  uploads:
+  outputs:
