@@ -8,7 +8,12 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git remote *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "PowerShell(docker version --format '{{.Server.Version}}' 2>&1)",
+      "PowerShell(Start-Process \"$env:ProgramFiles\\\\Docker\\\\Docker\\\\Docker Desktop.exe\"; Write-Output \"Docker Desktop launching...\")",
+      "Bash(docker compose *)",
+      "PowerShell(cd \"D:\\\\CLAUDE\\\\pdf-converter-backend\"; Add-Type -AssemblyName System.Drawing; $bmp = New-Object System.Drawing.Bitmap 300,100; $g = [System.Drawing.Graphics]::FromImage\\($bmp\\); $g.Clear\\([System.Drawing.Color]::White\\); $g.DrawString\\(\"Hello PDF\", \\(New-Object System.Drawing.Font\\(\"Arial\",20\\)\\), [System.Drawing.Brushes]::Black, 20, 30\\); $tmp = \"$env:TEMP\\\\test_img.png\"; $bmp.Save\\($tmp, [System.Drawing.Imaging.ImageFormat]::Png\\); $g.Dispose\\(\\); $bmp.Dispose\\(\\); $r = curl.exe -s -X POST \"http://localhost:8000/api/v1/convert/image-to-pdf\" -F \"file=@$tmp\"; Write-Output $r)",
+      "PowerShell(cd \"D:\\\\CLAUDE\\\\pdf-converter-backend\"; $docx = \"$env:TEMP\\\\test_doc.docx\"; docker compose exec -T worker python -c \"from docx import Document; d=Document\\(\\); d.add_heading\\('Test',0\\); d.add_paragraph\\('Hello from Word to PDF'\\); d.save\\('/tmp/t.docx'\\)\" 2>&1; docker compose cp worker:/tmp/t.docx \"$docx\" 2>&1; $r = curl.exe -s -X POST \"http://localhost:8000/api/v1/convert/word-to-pdf\" -F \"file=@$docx\"; Write-Output $r)"
     ]
   }
 }

@@ -364,13 +364,64 @@
           <input type="text" id="jobIdInput" placeholder="auto-filled after submit" />
         </div>
         <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-          <button class="btn" onclick="pollJob()">Poll Once</button>
-          <button class="btn" id="autoPollBtn" onclick="toggleAutoPoll()" style="background:#334155; color:#94a3b8;">Auto-poll (2 s)</button>
+          <button class="btn" onclick="pollJob('cv')">Poll Once</button>
+          <button class="btn" id="autoPollBtn" onclick="toggleAutoPoll('cv')" style="background:#334155; color:#94a3b8;">Auto-poll (2 s)</button>
         </div>
         <div class="poll-status" id="pollStatus" style="margin-top:0.4rem;"></div>
         <div class="response-box neutral" id="jobRes" style="margin-top:0.5rem;">— awaiting poll —</div>
         <div id="downloadSection" style="display:none; margin-top:0.4rem;"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="card" style="grid-column: 1 / -1; max-width: 860px;">
+    <div class="card-header">
+      <span class="method-badge POST">POST</span>
+      <h2>Convert Word → PDF</h2>
+      <span class="path">/api/v1/convert/word-to-pdf</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Word File (.docx)</label>
+        <input type="file" id="wpFile" accept=".docx,.doc" />
+      </div>
+      <button class="btn" id="wpBtn" onclick="submitWordToPdf()">Submit Job</button>
+      <div class="response-box neutral" id="wpRes">— awaiting request —</div>
+
+      <div id="wpPollSection" style="display:none; margin-top:0.5rem;">
+        <div class="field">
+          <label>Job ID</label>
+          <input type="text" id="wpJobIdInput" placeholder="auto-filled after submit" />
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <button class="btn" onclick="pollJob('wp')">Poll Once</button>
+          <button class="btn" id="wpAutoPollBtn" onclick="toggleAutoPoll('wp')" style="background:#334155; color:#94a3b8;">Auto-poll (2 s)</button>
+        </div>
+        <div class="poll-status" id="wpPollStatus" style="margin-top:0.4rem;"></div>
+        <div class="response-box neutral" id="wpJobRes" style="margin-top:0.5rem;">— awaiting poll —</div>
+        <div id="wpDownloadSection" style="display:none; margin-top:0.4rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONVERT (sync) ─────────────────────────── -->
+  <hr class="divider" />
+  <p class="section-title">Convert (sync)</p>
+
+  <div class="card" style="grid-column: 1 / -1; max-width: 860px;">
+    <div class="card-header">
+      <span class="method-badge POST">POST</span>
+      <h2>Convert Image → PDF</h2>
+      <span class="path">/api/v1/convert/image-to-pdf</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Image File (JPEG/PNG/WebP/BMP/TIFF)</label>
+        <input type="file" id="ipFile" accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff" />
+      </div>
+      <button class="btn" id="ipBtn" onclick="imageToPdf()">Convert</button>
+      <div class="response-box neutral" id="ipRes">— awaiting request —</div>
+      <div id="ipDownloadSection" style="display:none; margin-top:0.4rem;"></div>
     </div>
   </div>
 
@@ -520,99 +571,143 @@
     }
   }
 
-  // ── convert: submit job ─────────────────────────────────────────────────────
+  // ── convert: async job cards (prefix-driven) ────────────────────────────────
+  // Each async converter card shares the same job-polling logic, keyed by a prefix.
+  // cv = PDF→DOCX, wp = Word→PDF.
+  const JOB_CARDS = {
+    cv: { fileId: 'cvFile', btnId: 'cvBtn', resId: 'cvRes', endpoint: '/api/v1/convert/to-docx',
+          need: 'Select a PDF first.', label: 'DOCX',
+          jobInput: 'jobIdInput', pollSection: 'pollSection', pollStatus: 'pollStatus',
+          jobRes: 'jobRes', download: 'downloadSection', autoBtn: 'autoPollBtn' },
+    wp: { fileId: 'wpFile', btnId: 'wpBtn', resId: 'wpRes', endpoint: '/api/v1/convert/word-to-pdf',
+          need: 'Select a Word file first.', label: 'PDF',
+          jobInput: 'wpJobIdInput', pollSection: 'wpPollSection', pollStatus: 'wpPollStatus',
+          jobRes: 'wpJobRes', download: 'wpDownloadSection', autoBtn: 'wpAutoPollBtn' },
+  };
+  const autoPollTimers = { cv: null, wp: null };
 
-  let autoPollTimer = null;
+  async function submitConvert() { await submitJob('cv'); }
+  async function submitWordToPdf() { await submitJob('wp'); }
 
-  async function submitConvert() {
-    const file = document.getElementById('cvFile').files[0];
-    if (!file) { showRes('cvRes', 'Select a PDF first.', true); return; }
+  async function submitJob(prefix) {
+    const c = JOB_CARDS[prefix];
+    const file = document.getElementById(c.fileId).files[0];
+    if (!file) { showRes(c.resId, c.need, true); return; }
 
-    stopAutoPoll();
+    stopAutoPoll(prefix);
 
-    const btn = document.getElementById('cvBtn');
+    const btn = document.getElementById(c.btnId);
     btn.disabled = true; btn.textContent = 'Submitting…';
-    showRes('cvRes', 'Uploading…');
+    showRes(c.resId, 'Uploading…');
 
     const fd = new FormData();
     fd.append('file', file);
 
     try {
-      const r = await fetch(`${base()}/api/v1/convert/to-docx`, { method: 'POST', body: fd });
+      const r = await fetch(`${base()}${c.endpoint}`, { method: 'POST', body: fd });
       const json = await r.json();
-      showRes('cvRes', json, !r.ok);
+      showRes(c.resId, json, !r.ok);
 
       if (r.ok && json.job_id) {
-        document.getElementById('jobIdInput').value = json.job_id;
-        document.getElementById('pollSection').style.display = 'block';
-        document.getElementById('downloadSection').style.display = 'none';
-        document.getElementById('downloadSection').innerHTML = '';
-        renderPollStatus('pending');
-        showRes('jobRes', '— awaiting first poll —');
-        // start auto-poll automatically
-        startAutoPoll();
+        document.getElementById(c.jobInput).value = json.job_id;
+        document.getElementById(c.pollSection).style.display = 'block';
+        document.getElementById(c.download).style.display = 'none';
+        document.getElementById(c.download).innerHTML = '';
+        renderPollStatus(prefix, 'pending');
+        showRes(c.jobRes, '— awaiting first poll —');
+        startAutoPoll(prefix);
       }
     } catch (e) {
-      showRes('cvRes', 'Network error: ' + e.message, true);
+      showRes(c.resId, 'Network error: ' + e.message, true);
     } finally {
       btn.disabled = false; btn.textContent = 'Submit Job';
     }
   }
 
-  // ── convert: poll job ───────────────────────────────────────────────────────
-
-  async function pollJob() {
-    const jobId = document.getElementById('jobIdInput').value.trim();
-    if (!jobId) { showRes('jobRes', 'Enter a job_id first.', true); return; }
+  async function pollJob(prefix) {
+    const c = JOB_CARDS[prefix];
+    const jobId = document.getElementById(c.jobInput).value.trim();
+    if (!jobId) { showRes(c.jobRes, 'Enter a job_id first.', true); return; }
 
     try {
       const r = await fetch(`${base()}/api/v1/jobs/${jobId}`);
       const json = await r.json();
-      showRes('jobRes', json, !r.ok);
+      showRes(c.jobRes, json, !r.ok);
 
-      if (!r.ok) { stopAutoPoll(); return; }
+      if (!r.ok) { stopAutoPoll(prefix); return; }
 
-      renderPollStatus(json.status);
+      renderPollStatus(prefix, json.status);
 
       if (json.status === 'done') {
-        stopAutoPoll();
+        stopAutoPoll(prefix);
         if (json.download_url) {
-          const sec = document.getElementById('downloadSection');
+          const sec = document.getElementById(c.download);
           sec.style.display = 'block';
-          sec.innerHTML = `<a class="download-link" href="${base()}${json.download_url}" download>Download DOCX</a>`;
+          sec.innerHTML = `<a class="download-link" href="${base()}${json.download_url}" download>Download ${c.label}</a>`;
         }
       } else if (json.status === 'failed') {
-        stopAutoPoll();
+        stopAutoPoll(prefix);
       }
     } catch (e) {
-      showRes('jobRes', 'Network error: ' + e.message, true);
+      showRes(c.jobRes, 'Network error: ' + e.message, true);
     }
   }
 
-  function renderPollStatus(status) {
-    const el = document.getElementById('pollStatus');
+  function renderPollStatus(prefix, status) {
+    const el = document.getElementById(JOB_CARDS[prefix].pollStatus);
     el.innerHTML = `Status: <span class="tag ${status}">${status}</span>`;
   }
 
-  function startAutoPoll() {
-    if (autoPollTimer) return;
-    const btn = document.getElementById('autoPollBtn');
+  function startAutoPoll(prefix) {
+    if (autoPollTimers[prefix]) return;
+    const btn = document.getElementById(JOB_CARDS[prefix].autoBtn);
     btn.style.background = '#4f46e5'; btn.style.color = '#fff';
     btn.textContent = 'Stop auto-poll';
-    autoPollTimer = setInterval(pollJob, 2000);
+    autoPollTimers[prefix] = setInterval(() => pollJob(prefix), 2000);
   }
 
-  function stopAutoPoll() {
-    if (!autoPollTimer) return;
-    clearInterval(autoPollTimer);
-    autoPollTimer = null;
-    const btn = document.getElementById('autoPollBtn');
+  function stopAutoPoll(prefix) {
+    if (!autoPollTimers[prefix]) return;
+    clearInterval(autoPollTimers[prefix]);
+    autoPollTimers[prefix] = null;
+    const btn = document.getElementById(JOB_CARDS[prefix].autoBtn);
     btn.style.background = '#334155'; btn.style.color = '#94a3b8';
     btn.textContent = 'Auto-poll (2 s)';
   }
 
-  function toggleAutoPoll() {
-    autoPollTimer ? stopAutoPoll() : startAutoPoll();
+  function toggleAutoPoll(prefix) {
+    autoPollTimers[prefix] ? stopAutoPoll(prefix) : startAutoPoll(prefix);
+  }
+
+  // ── convert: image → pdf (sync) ─────────────────────────────────────────────
+
+  async function imageToPdf() {
+    const file = document.getElementById('ipFile').files[0];
+    if (!file) { showRes('ipRes', 'Select an image first.', true); return; }
+
+    const btn = document.getElementById('ipBtn');
+    btn.disabled = true; btn.textContent = 'Converting…';
+    const dl = document.getElementById('ipDownloadSection');
+    dl.style.display = 'none'; dl.innerHTML = '';
+    showRes('ipRes', 'Uploading & converting…');
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const r = await fetch(`${base()}/api/v1/convert/image-to-pdf`, { method: 'POST', body: fd });
+      const json = await r.json();
+      showRes('ipRes', json, !r.ok);
+
+      if (r.ok && json.download_url) {
+        dl.style.display = 'block';
+        dl.innerHTML = `<a class="download-link" href="${base()}${json.download_url}" download>Download PDF</a>`;
+      }
+    } catch (e) {
+      showRes('ipRes', 'Network error: ' + e.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Convert';
+    }
   }
 
   // ── jobs: manual lookup ─────────────────────────────────────────────────────
