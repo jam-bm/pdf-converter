@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 50
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
+    # Local dev: run Celery tasks inline in the API process (no Redis/worker needed).
+    CELERY_TASK_ALWAYS_EAGER: bool = False
+
     DATABASE_URL: str = "postgresql+asyncpg://pdfuser:pdfpassword@localhost:5432/pdfconverter"
     DATABASE_SYNC_URL: str = "postgresql+psycopg2://pdfuser:pdfpassword@localhost:5432/pdfconverter"
     REDIS_URL: str = "redis://localhost:6379/0"

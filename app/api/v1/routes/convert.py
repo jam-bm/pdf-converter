@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.db.models import Job
 from app.tasks.pdf_tasks import convert_pdf_task, convert_docx_to_pdf_task
 from app.services.image_converter import convert_image_to_pdf
+from app.services.pdf_to_image_converter import convert_pdf_to_image
 
 router = APIRouter(prefix="/convert", tags=["Convert"])
 
@@ -91,19 +92,43 @@ async def image_to_pdf(file: UploadFile = File(...)):
         image_path.unlink(missing_ok=True)
 
 
+@router.post(
+    "/pdf-to-image",
+    summary="Convert a PDF to image(s) (synchronous)",
+    description=(
+        "Renders each PDF page to a PNG. A single-page PDF returns one .png; a multi-page "
+        "PDF returns a .zip of page_1.png, page_2.png, ... Download via the returned download_url."
+    ),
+)
+async def pdf_to_image(file: UploadFile = File(...)):
+    _validate_pdf(file)
+
+    pdf_path = await _save_upload(file, ".pdf")
+    try:
+        result = convert_pdf_to_image(pdf_path, settings.OUTPUT_DIR)
+        return result
+    finally:
+        pdf_path.unlink(missing_ok=True)
+
+
 @router.get(
     "/download/{filename}",
-    summary="Download a converted .docx file",
+    summary="Download a converted file (.docx / .pdf / .png / .zip)",
 )
 async def download_file(filename: str):
     file_path = settings.OUTPUT_DIR / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found or already deleted")
 
-    media_type = (
-        "application/pdf" if filename.lower().endswith(".pdf")
-        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    lower = filename.lower()
+    if lower.endswith(".pdf"):
+        media_type = "application/pdf"
+    elif lower.endswith(".png"):
+        media_type = "image/png"
+    elif lower.endswith(".zip"):
+        media_type = "application/zip"
+    else:
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     return FileResponse(path=str(file_path), filename=filename, media_type=media_type)
 
 
